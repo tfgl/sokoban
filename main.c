@@ -112,14 +112,16 @@ int move(pos* p, DIR d) {
       (*p)[1] = p2[1];
       break;
 
+    case LOCKED:
+      (*p)[0] = p2[0];
+      (*p)[1] = p2[1];
+      map[p2[1]][p2[0]] = TARGET;
+      *next = CRATE;
     case CRATE:
       if(move(&p3, d)) {
         (*p)[0] = p2[0];
         (*p)[1] = p2[1];
       }
-      break;
-
-    case WALL:
       break;
 
     case TARGET:
