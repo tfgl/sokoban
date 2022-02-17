@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <malloc.h>
+#include <SDL2/SDL.h>
+
 #define W 5
 #define H 5
 
@@ -9,6 +11,15 @@ pos up    = { 0, -1};
 pos left  = {-1,  0};
 pos down  = { 0,  1};
 pos right = { 1,  0};
+
+typedef struct WindowStuff {
+  SDL_Window* window;
+  SDL_Renderer* renderer;
+  SDL_Rect viewPort;
+  int width, height, fps;
+  char* title;
+} WindowStuff;
+void initWin(WindowStuff* win, int width, int height, char* title);
 
 char map[H][W] = {
   {'.', '.', '.', '.', '.'},
@@ -120,6 +131,12 @@ void render(pos* p) {
 }
 
 int main() {
+  WindowStuff win;
+  initWin(&win, 500, 500, "sokoban");
+
+  while(1) {
+  }
+
   pos* p = malloc(sizeof(pos));
   newPlayer(*p, 3, 2);
   render(p);
@@ -137,4 +154,30 @@ int main() {
   move(p, UP);
   render(p);
   return 0;
+}
+
+void initWin(WindowStuff* win, int width, int height, char* title) {
+  win->width = width;
+  win->height = height;
+  win->fps = 60;
+  strcpy(win->title, title);
+
+  win->viewPort.w = win->width;
+  win->viewPort.h = win->height;
+  SDL_Init(SDL_INIT_VIDEO);
+
+  win->window = SDL_CreateWindow(
+      win->title,
+      SDL_WINDOWPOS_UNDEFINED,
+      SDL_WINDOWPOS_UNDEFINED,
+      win->width,
+      win->height,
+      SDL_WINDOW_SHOWN
+    );
+
+  win->renderer = SDL_CreateRenderer(
+      win->window,
+      -1,
+      SDL_RENDERER_ACCELERATED
+    );
 }
