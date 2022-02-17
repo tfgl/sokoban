@@ -5,7 +5,14 @@
 #include <SDL2/SDL_image.h>
 
 #define W 10
-#define H 5
+#define H 10
+
+#define WALL 'X'
+#define CRATE 'c'
+#define LOCKED '#'
+#define TARGET 'o'
+#define PLAYER 'p'
+#define GROUND '.'
 
 typedef enum {UP, LEFT, DOWN, RIGHT} DIR;
 typedef int pos[2];
@@ -22,18 +29,30 @@ typedef struct WindowStuff {
   char* title;
   char open;
 } WindowStuff;
+
+typedef struct Player {
+  pos p;
+  DIR rotation;
+} Player;
+
 void initWin(WindowStuff* win, int width, int height, char* title);
 
 char map[H][W] = {
-  {'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'},
-  {'X', '.', 'o', '.', 'X', '.', '.', '.', '.', 'X'},
-  {'X', '.', 'c', '.', '.', '.', 'c', 'o', '.', 'X'},
-  {'X', 'o', 'c', '.', 'X', '.', '.', '.', '.', 'X'},
-  {'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'}
+  {WALL, WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL},
+  {WALL, TARGET, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
+  {WALL, GROUND, CRATE , GROUND, CRATE , CRATE , GROUND, TARGET, GROUND, WALL},
+  {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
+  {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
+  {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
+  {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
+  {WALL, GROUND, GROUND, GROUND, GROUND, GROUND, GROUND, TARGET, GROUND, WALL},
+  {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
+  {WALL, WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL}
 };
 
-void newPlayer(pos p, int x, int y) {
-  p[0] = x; p[1] = y;
+void newPlayer(Player* player, int x, int y) {
+  player->p[0] = x; player->p[1] = y;
+  player->rotation = DOWN;
 }
 
 pos* convertDir(DIR d) {
@@ -88,39 +107,39 @@ int move(pos* p, DIR d) {
   if(!(p2[0] < W && p2[0] >= 0 && p2[1] < H && p2[1] >= 0)) return 0;
 
   switch(*next) {
-    case '.':
+    case GROUND:
       (*p)[0] = p2[0];
       (*p)[1] = p2[1];
       break;
 
-    case 'c':
+    case CRATE:
       if(move(&p3, d)) {
         (*p)[0] = p2[0];
         (*p)[1] = p2[1];
       }
       break;
 
-    case 'X':
+    case WALL:
       break;
 
-    case 'o':
+    case TARGET:
       (*p)[0] = p2[0];
       (*p)[1] = p2[1];
-      if( *curent == 'c' )
-        *curent = '#';
+      if( *curent == CRATE )
+        *curent = LOCKED;
       break;
   }
   // if moved successfully
-  if( (*p)[0] == p2[0] && (*p)[1] == p2[1] && !((*next == 'o' && *curent == '.') || (*next == '.' && *curent == 'o'))) {
+  if( (*p)[0] == p2[0] && (*p)[1] == p2[1] && !((*next == TARGET && *curent == GROUND) || (*next == GROUND && *curent == TARGET))) {
     *next = *curent;
-    *curent = '.';
+    *curent = GROUND;
     return 1;
   }
 
   return 0;
 }
 
-void render(pos p, WindowStuff* win) {
+void render(Player* player, WindowStuff* win) {
   SDL_Surface* surf = IMG_Load("textures.png");
   SDL_Texture* textures = SDL_CreateTextureFromSurface(win->renderer, surf);
   int size = 96;
@@ -131,27 +150,27 @@ void render(pos p, WindowStuff* win) {
       src.h = 32;
       src.w = 32;
       switch( map[i][j] ) {
-        case '.':
+        case GROUND:
           src.x = 32;
           src.y = 0;
           break;
 
-        case 'X':
+        case WALL:
           src.x = 0;
           src.y = 0;
           break;
 
-        case 'o':
+        case TARGET:
           src.x = 0;
           src.y = 64;
           break;
 
-        case 'c':
+        case CRATE:
           src.x = 32;
           src.y = 64;
           break;
 
-        case '#':
+        case LOCKED:
           src.x = 64;
           src.y = 64;
           break;
@@ -159,9 +178,28 @@ void render(pos p, WindowStuff* win) {
 
       SDL_RenderCopy( win->renderer, textures, &src, &dst);
 
-      if( p[0] == j && p[1] == i) {
-        src.x = 64;
-        src.y = 0;
+      if( player->p[0] == j && player->p[1] == i) {
+        switch( player->rotation ) {
+          case UP:
+            src.x = 32;
+            src.y = 32;
+            break;
+
+          case LEFT:
+            src.x = 64;
+            src.y = 32;
+            break;
+
+          case DOWN:
+            src.x = 64;
+            src.y = 0;
+            break;
+
+          case RIGHT:
+            src.x = 0;
+            src.y = 32;
+            break;
+        }
         SDL_RenderCopy( win->renderer, textures, &src, &dst);
       }
     }
@@ -170,34 +208,38 @@ void render(pos p, WindowStuff* win) {
   SDL_RenderPresent( win->renderer );
 }
 
-void keydown(SDL_Keycode k, pos* p) {
+void keydown(SDL_Keycode k, Player* player) {
   switch(k) {
     case SDLK_COMMA:
-      move(p, UP);
+      move(&player->p, UP);
+      player->rotation = UP;
       break;
 
     case SDLK_a:
-      move(p, LEFT);
+      move(&player->p, LEFT);
+      player->rotation = LEFT;
       break;
 
     case SDLK_e:
-      move(p, RIGHT);
+      move(&player->p, RIGHT);
+      player->rotation = RIGHT;
       break;
 
     case SDLK_o:
-      move(p, DOWN);
+      move(&player->p, DOWN);
+      player->rotation = DOWN;
       break;
   }
 }
 
-void keyup(SDL_Keycode k, pos* p) {
+void keyup(SDL_Keycode k, Player* player) {
 }
 
 int main() {
   WindowStuff win;
   initWin(&win, 1000, 1000, "sokoban");
-  pos p;
-  newPlayer(p, 3, 2);
+  Player player;
+  newPlayer(&player, 3, 2);
 
   while( win.open ) {
     double t0 = SDL_GetTicks();
@@ -211,16 +253,16 @@ int main() {
           break;
 
         case SDL_KEYDOWN:
-          keydown(e.key.keysym.sym, &p);
+          keydown(e.key.keysym.sym, &player);
           break;
 
         case SDL_KEYUP:
-          keyup(e.key.keysym.sym, &p);
+          keyup(e.key.keysym.sym, &player);
           break;
       }
     }
 
-    render(p, &win);
+    render(&player, &win);
 
     double delay = win.fps - (SDL_GetTicks() - t0);
     if(delay > 0)
@@ -255,3 +297,4 @@ void initWin(WindowStuff* win, int width, int height, char* title) {
       -1,
       SDL_RENDERER_ACCELERATED);
 }
+
