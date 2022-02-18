@@ -35,6 +35,5 @@ GameState initGame(char map[H][W]);
 pos* convertDir(DIR d);
 char* nextTile(pos* p, DIR direction, GameState* game);
 int move(pos* p, DIR d, GameState* game);
-int checkForVictory();
 
 #endif

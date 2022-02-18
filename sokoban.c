@@ -4,10 +4,6 @@ pos left  = {-1,  0};
 pos down  = { 0,  1};
 pos right = { 1,  0};
 
-int checkForVictory() {
-  return 0;
-}
-
 void newPlayer(GameState* game, int x, int y) {
   game->player.p[0] = x;
   game->player.p[1] = y;
@@ -61,8 +57,6 @@ char* nextTile(pos* p, DIR direction, GameState* game) {
   int x = (*p)[0], y = (*p)[1];
   int x2 = (*p)[0] + d[0], y2 = (*p)[1] + d[1];
 
-  printf("(%d %d) + (%d %d) = (%d %d) -> %c\n", x, y, d[0], d[1], x2, y2, (game->map[y2][x2]));
-
   return &(game->map[y2][x2]);
 }
 
@@ -105,6 +99,9 @@ int move(pos* p, DIR d, GameState* game) {
     }
   }
   if( *curent == CRATE || *curent == LOCKED ) {
+    if( *curent == LOCKED )
+      game->targetLeft++;
+
     switch(*next) {
       case GROUND:
         *curent = GROUND;
@@ -117,6 +114,8 @@ int move(pos* p, DIR d, GameState* game) {
         if( move(&p2, d, game) ) {
           *curent = GROUND;
           *next = nextcpy;
+          if(nextcpy == LOCKED)
+            game->targetLeft--;
           return 1;
         }
         return 0;
@@ -125,8 +124,13 @@ int move(pos* p, DIR d, GameState* game) {
       case TARGET:
         *curent = GROUND;
         *next = LOCKED;
-        checkForVictory();
+        game->targetLeft--;
         return 1;
+        break;
+
+      default:
+        if( *curent == LOCKED )
+          game->targetLeft--;
         break;
     }
   }

@@ -4,19 +4,19 @@ void keydown(SDL_Keycode k, GameState* game) {
   DIR d;
 
   switch(k) {
-    case SDLK_COMMA:
+    case SDLK_UP:
       d = UP;
       break;
 
-    case SDLK_a:
+    case SDLK_LEFT:
       d = LEFT;
       break;
 
-    case SDLK_e:
+    case SDLK_RIGHT:
       d = RIGHT;
       break;
 
-    case SDLK_o:
+    case SDLK_DOWN:
       d = DOWN;
       break;
 
@@ -33,6 +33,33 @@ void keydown(SDL_Keycode k, GameState* game) {
 }
 
 void keyup(SDL_Keycode k, GameState* game) {
+}
+
+void renderText(WindowStuff* win, const char* txt, int x, int y, int scale, int centered) {
+  int fontSize = 4;
+  int numbersSize = 7;
+  if( centered ) x -= (strlen(txt) - 1) * fontSize * scale;
+
+  for(int i=0; txt[i] != 0; i++) {
+    char c = txt[i];
+    if( c >= '0' && c <= ':') {
+      c -= '0';
+      SDL_Rect src = {c * numbersSize, 0, numbersSize, numbersSize},
+               dst = {x + scale * fontSize * i, y, fontSize*scale, fontSize*scale};
+      SDL_RenderCopy(win->renderer, win->numbers, &src, &dst);
+    }
+    else {
+      if( c >= 'a') c -= 'a' - 'A';
+      if( c == ' ')
+        c = 26;
+      else
+        c -= 'A';
+
+      SDL_Rect src = {c * fontSize, 0, fontSize, fontSize},
+               dst = {x + scale * fontSize * i, y, fontSize*scale, fontSize*scale};
+      SDL_RenderCopy(win->renderer, win->letters, &src, &dst);
+    }
+  }
 }
 
 void render(GameState* game, WindowStuff* win) {
@@ -100,6 +127,18 @@ void render(GameState* game, WindowStuff* win) {
     }
   }
 
+  if ( game->targetLeft == 0 ) {
+    int c = size * 2;
+    SDL_Rect src = {.x=0, .y=0, .w=32, .h=32};
+    SDL_Rect dst = {.x=c, .y=c, .w=win->width-c*2, .h=win->height-c*2};
+    SDL_RenderCopy( win->renderer, win->winScreen, &src, &dst);
+  }
+
+  char targetleft[32];
+  sprintf(targetleft, "left : %d", game->targetLeft);
+  renderText(win, targetleft, 0, 0, 6, 0);
+  renderText(win, SDL_GetWindowTitle(win->window), win->width/2, 0, 6, 1);
+
   SDL_RenderPresent( win->renderer );
 }
 
@@ -126,15 +165,25 @@ void initWin(WindowStuff* win, int width, int height, char* title) {
       -1,
       SDL_RENDERER_ACCELERATED);
 
-  SDL_Surface* surf = IMG_Load("textures.png");
-  win->textures = SDL_CreateTextureFromSurface(win->renderer, surf);
-  SDL_FreeSurface(surf);
+  SDL_Surface *texsurf = IMG_Load("textures.png"),
+              *winsurf = IMG_Load("winscreen.png"),
+              *lettersurf = IMG_Load("letters.png"),
+              *numbersuf = IMG_Load("numbers.png");
+
+  win->textures = SDL_CreateTextureFromSurface(win->renderer, texsurf);
+  win->winScreen = SDL_CreateTextureFromSurface(win->renderer, winsurf);
+  win->numbers = SDL_CreateTextureFromSurface(win->renderer, numbersuf);
+  win->letters = SDL_CreateTextureFromSurface(win->renderer, lettersurf);
+  SDL_FreeSurface(texsurf);
+  SDL_FreeSurface(winsurf);
+  SDL_FreeSurface(numbersuf);
+  SDL_FreeSurface(lettersurf);
 }
 
 void run(char map[H][W]) {
   WindowStuff win;
   GameState game = initGame(map);
-  initWin(&win, 1000, 1000, "sokoban");
+  initWin(&win, W*96, H*96, "sokoban");
 
   while( win.open ) {
     double t0 = SDL_GetTicks();
@@ -167,5 +216,6 @@ void run(char map[H][W]) {
   SDL_DestroyWindow(win.window);
   SDL_DestroyRenderer(win.renderer);
   SDL_DestroyTexture(win.textures);
+  SDL_DestroyTexture(win.winScreen);
   SDL_Quit();
 }
