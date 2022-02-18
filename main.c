@@ -40,7 +40,7 @@ void initWin(WindowStuff* win, int width, int height, char* title);
 char map[H][W] = {
   {WALL, WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL  , WALL},
   {WALL, TARGET, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
-  {WALL, GROUND, CRATE , GROUND, CRATE , CRATE , GROUND, TARGET, GROUND, WALL},
+  {WALL, GROUND, CRATE , PLAYER, CRATE , CRATE , GROUND, TARGET, GROUND, WALL},
   {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
   {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
   {WALL, GROUND, GROUND, GROUND, WALL  , GROUND, GROUND, GROUND, GROUND, WALL},
@@ -53,6 +53,19 @@ char map[H][W] = {
 void newPlayer(Player* player, int x, int y) {
   player->p[0] = x; player->p[1] = y;
   player->rotation = DOWN;
+}
+
+Player initMap(char map[H][W]) {
+  Player p;
+  for(int i = 0; i < H; i++) {
+    for(int j = 0; j < W; j++) {
+      if(map[i][j] == PLAYER) {
+        newPlayer(&p, j, i);
+        map[i][j] = GROUND;
+      }
+    }
+  }
+  return p;
 }
 
 pos* convertDir(DIR d) {
@@ -100,44 +113,64 @@ int move(pos* p, DIR d) {
   char* curent = &map[(*p)[1]][(*p)[0]];
   pos* v = convertDir(d);
   pos p2 = {(*p)[0] + (*v)[0], (*p)[1] + (*v)[1]};
-  pos p3 = {p2[0], p2[1]};
+  char nextcpy = *next;
 
-  //printf("(%d, %d): [%c] -> (%d, %d): [%c]\n", (*p)[0], (*p)[1], *curent, p2[0], p2[1], *next);
-  // bounding check
   if(!(p2[0] < W && p2[0] >= 0 && p2[1] < H && p2[1] >= 0)) return 0;
 
-  switch(*next) {
-    case GROUND:
-      (*p)[0] = p2[0];
-      (*p)[1] = p2[1];
-      break;
-
-    case LOCKED:
-      (*p)[0] = p2[0];
-      (*p)[1] = p2[1];
-      map[p2[1]][p2[0]] = TARGET;
-      *next = CRATE;
-    case CRATE:
-      if(move(&p3, d)) {
+  if( *curent == GROUND || *curent == TARGET) {
+    switch(*next) {
+      case TARGET:
+      case GROUND:
         (*p)[0] = p2[0];
         (*p)[1] = p2[1];
-      }
-      break;
+        return 1;
+        break;
 
-    case TARGET:
-      (*p)[0] = p2[0];
-      (*p)[1] = p2[1];
-      if( *curent == CRATE )
-        *curent = LOCKED;
-      break;
-  }
-  // if moved successfully
-  if( (*p)[0] == p2[0] && (*p)[1] == p2[1] && !((*next == TARGET && *curent == GROUND) || (*next == GROUND && *curent == TARGET))) {
-    *next = *curent;
-    *curent = GROUND;
-    return 1;
-  }
+      case CRATE:
+        if( move(&p2, d) ) {
+          (*p)[0] = p2[0];
+          (*p)[1] = p2[1];
+          return 1;
+        }
+        return 0;
+        break;
 
+      case LOCKED:
+        if( move(&p2, d) ) {
+          (*p)[0] = p2[0];
+          (*p)[1] = p2[1];
+          *next = TARGET;
+          return 1;
+        }
+        return 0;
+        break;
+    }
+  }
+  if( *curent == CRATE || *curent == LOCKED ) {
+    switch(*next) {
+      case GROUND:
+        *curent = GROUND;
+        *next = CRATE;
+        return 1;
+        break;
+
+      case CRATE:
+      case LOCKED:
+        if( move(&p2, d) ) {
+          *curent = GROUND;
+          *next = nextcpy;
+          return 1;
+        }
+        return 0;
+        break;
+
+      case TARGET:
+        *curent = GROUND;
+        *next = LOCKED;
+        return 1;
+        break;
+    }
+  }
   return 0;
 }
 
@@ -240,8 +273,7 @@ void keyup(SDL_Keycode k, Player* player) {
 int main() {
   WindowStuff win;
   initWin(&win, 1000, 1000, "sokoban");
-  Player player;
-  newPlayer(&player, 3, 2);
+  Player player = initMap(map);
 
   while( win.open ) {
     double t0 = SDL_GetTicks();
