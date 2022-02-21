@@ -109,6 +109,7 @@ int move(pos* p, DIR d, GameState* game) {
         return 1;
         break;
 
+      // pushing multiple crates
       case CRATE:
       case LOCKED:
         if( move(&p2, d, game) ) {

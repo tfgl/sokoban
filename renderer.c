@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include <pthread.h>
 
 void keydown(SDL_Keycode k, GameState* game) {
   DIR d;
@@ -150,7 +151,7 @@ void initWin(WindowStuff* win, int width, int height, char* title) {
 
   win->viewPort.w = win->width;
   win->viewPort.h = win->height;
-  SDL_Init(SDL_INIT_VIDEO);
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
   win->window = SDL_CreateWindow(
       title,
@@ -180,14 +181,29 @@ void initWin(WindowStuff* win, int width, int height, char* title) {
   SDL_FreeSurface(lettersurf);
 }
 
+SoundTrack playSound(const char* path) {
+  SoundTrack st;
+  SDL_LoadWAV(path, &(st.wav_spec), &(st.wav_buffer), &(st.wav_length));
+  SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(NULL, 0, &(st.wav_spec), NULL, 0);
+  SDL_QueueAudio(deviceId, st.wav_buffer, st.wav_length);
+  SDL_PauseAudioDevice(deviceId, 0);
+  st.deviceId = deviceId;
+
+  return st;
+}
+
 void run(char map[H][W]) {
   WindowStuff win;
   GameState game = initGame(map);
+  SoundTrack st = playSound("music.wav");
+
   initWin(&win, W*96, H*96, "sokoban");
 
   while( win.open ) {
     double t0 = SDL_GetTicks();
     SDL_RenderClear( win.renderer );
+    if( SDL_GetQueuedAudioSize(st.deviceId) < st.wav_length )
+      SDL_QueueAudio(st.deviceId, st.wav_buffer, st.wav_length);
 
     SDL_Event e;
     while( SDL_PollEvent(&e) ) {
@@ -213,6 +229,8 @@ void run(char map[H][W]) {
       SDL_Delay(delay);
   }
 
+	SDL_FreeWAV(st.wav_buffer);
+  SDL_CloseAudio();
   SDL_DestroyWindow(win.window);
   SDL_DestroyRenderer(win.renderer);
   SDL_DestroyTexture(win.textures);

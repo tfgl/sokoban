@@ -23,6 +23,13 @@ typedef struct WindowStuff {
   SDL_Texture* letters;
 } WindowStuff;
 
+typedef struct SoundTrack {
+  Uint32 wav_length;
+  Uint8 *wav_buffer;
+  SDL_AudioSpec wav_spec;
+  SDL_AudioDeviceID deviceId;
+} SoundTrack;
+
 void initWin(WindowStuff* win, int width, int height, char* title);
 void render(GameState* game, WindowStuff* win);
 void keydown(SDL_Keycode k, GameState* game);
@@ -30,5 +37,6 @@ void keyup(SDL_Keycode k, GameState* game);
 void render(GameState* game, WindowStuff* win);
 void run(char map[H][W]);
 void renderText(WindowStuff* win, const char* txt, int x, int y, int scale, int centered);
+SoundTrack playSound(const char* path);
 
 #endif
